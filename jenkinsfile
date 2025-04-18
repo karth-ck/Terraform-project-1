@@ -1,0 +1,57 @@
+pipeline {
+    agent any
+
+    environment {
+        TF_VAR_aws_region = 'us-east-1'
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                git branch: 'main', url: 'https://github.com/karth-ck/demo-1.git'
+            }
+        }
+
+        stage('Terraform Init') {
+            steps {
+                withCredentials([[
+                    $class: 'AmazonWebServicesCredentialsBinding',
+                    credentialsId: 'aws-creds'
+                ]]) {
+                    sh 'terraform init'
+                }
+            }
+        }
+
+        stage('Terraform Plan') {
+            steps {
+                withCredentials([[
+                    $class: 'AmazonWebServicesCredentialsBinding',
+                    credentialsId: 'aws-creds'
+                ]]) {
+                    sh 'terraform plan -input=false -no-color'
+                }
+            }
+        }
+
+        stage('Terraform Apply') {
+            steps {
+                withCredentials([[
+                    $class: 'AmazonWebServicesCredentialsBinding',
+                    credentialsId: 'aws-creds'
+                ]]) {
+                    sh 'terraform apply -auto-approve -input=false'
+                }
+            }
+        }
+
+        stage('Show Instance IP') {
+            steps {
+                script {
+                    def ip = sh(script: "terraform output -raw instance_ip", returnStdout: true).trim()
+                    echo "✅ Your site is live at: http://${ip}"
+                }
+            }
+        }
+    }
+}
